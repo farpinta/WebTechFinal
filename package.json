@@ -1,0 +1,35 @@
+{
+  "name": "webtech-final-skill-share",
+  "version": "0.1.0",
+  "description": "Skill-Share Workshop booking platform — Final Project for Course 960121 (Spring 2026)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "nodemon server/index.js",
+    "seed": "node server/db/seed.js"
+  },
+  "keywords": [
+    "express",
+    "sqlite",
+    "workshop",
+    "booking",
+    "education",
+    "course-960121"
+  ],
+  "author": "Team Boypemt",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
