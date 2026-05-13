@@ -1,3 +1,6 @@
+# Claude Code context — local only, never commit
+CLAUDE.md
+
 # Dependencies
 node_modules/
 
