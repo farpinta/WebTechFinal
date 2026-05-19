@@ -29,8 +29,8 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// === Routes will be mounted here as we build them =================
-// app.use('/api/workshops', require('./routes/workshops'));
+// === Routes ========================================================
+app.use('/api/workshops', require('./routes/workshops'));
 // app.use('/api/register',  require('./routes/register'));
 // app.use('/api/login',     require('./routes/auth'));
 // app.use('/api/checkout',  require('./routes/checkout'));
