@@ -31,8 +31,8 @@ app.get('/api/health', (req, res) => {
 
 // === Routes ========================================================
 app.use('/api/workshops', require('./routes/workshops'));
-// app.use('/api/register',  require('./routes/register'));
-// app.use('/api/login',     require('./routes/auth'));
+app.use('/api/register',  require('./routes/register'));
+app.use('/api/login',     require('./routes/auth'));
 // app.use('/api/checkout',  require('./routes/checkout'));
 
 // --- 404 handler (no route matched) --------------------------------
