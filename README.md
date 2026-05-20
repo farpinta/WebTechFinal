@@ -7,7 +7,7 @@ A full-stack workshop booking platform built as the final project for **Course 9
 | Role | Member | Owns |
 |------|--------|------|
 | Lead Architect | Boypemt | Schema, transactions, JWT, `.env`, Go-Live Audit, `ARCHITECTURE.md` |
-| Integration Engineer | _TBD_ | API endpoints, `fetch()` logic, 409 handling, JWT state, hydration |
+| Integration Engineer | Arm | API endpoints, `fetch()` logic, 409 handling, JWT state, hydration |
 | UX Engineer | Farsai | Workshop cards, capacity badges, "Book Seat" UX, debouncing, CSS |
 
 ## The Niche — Skill-Share Workshop
