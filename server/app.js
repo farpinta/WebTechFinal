@@ -3,7 +3,8 @@
 // Kept separate from index.js so this can be imported in tests later.
 // ===================================================================
 const express = require('express');
-const cors = require('cors');
+const path    = require('path');
+const cors    = require('cors');
 
 const app = express();
 
@@ -29,11 +30,15 @@ app.get('/api/health', (req, res) => {
   res.json({ success: true, status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// --- Serve the frontend static files ---
+// public/ lives at the repo root — one level above server/.
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
 // === Routes ========================================================
 app.use('/api/workshops', require('./routes/workshops'));
 app.use('/api/register',  require('./routes/register'));
 app.use('/api/login',     require('./routes/auth'));
-// app.use('/api/checkout',  require('./routes/checkout'));
+app.use('/api/checkout',  require('./routes/checkout'));
 
 // --- 404 handler (no route matched) --------------------------------
 app.use((req, res) => {
