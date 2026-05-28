@@ -1,60 +1,42 @@
-// ===================================================================
-// server/services/checkoutService.js
-// Business logic: re-validates prices server-side (Gatekeeper Pattern,
-// ARCHITECTURE.md "Security Decisions") then delegates to the booking
-// repository. Controllers never call the repository directly.
-// ===================================================================
-const workshopRepo = require('../repositories/workshopRepository');
-const bookingRepo  = require('../repositories/bookingRepository');
+const orderRepository = require('../repositories/orderRepository');
 
-/**
- * Validates server-side prices and creates an atomic booking.
- *
- * @param {object}       opts
- * @param {number|null}  opts.userId      null for guest checkout
- * @param {string}       opts.email
- * @param {string}       opts.card_last4
- * @param {Array<{workshop_id:number, quantity:number}>} opts.cartItems
- *
- * @returns {Promise<
- *   { ok: true,  order_id: string } |
- *   { ok: false, conflict: { workshop_id: number, title: string } }
- * >}
- * @throws {{ status: 404, message: string }} when a workshop_id is unknown
- */
-async function processCheckout({ userId, email, card_last4, cartItems }) {
-    // -- Server-side price validation (Gatekeeper) ------------------
-    // Client-supplied unit_price is IGNORED here. We always use the
-    // DB price so a crafted request cannot book at an arbitrary price.
-    const validatedItems = [];
+async function placeOrder({ items, email, card, user_id }) {
+    const order_id = 'ORD-' + Date.now();
 
-    for (const item of cartItems) {
-        const workshop = await workshopRepo.findById(item.workshop_id);
-        if (!workshop) {
-            const err = new Error(`Workshop ${item.workshop_id} not found`);
-            err.status = 404;
-            throw err;
+    // PCI-DSS — only the last 4 digits ever touch storage.
+    const card_last4 = card.slice(-4);
+
+    const builtItems = [];
+    for (const item of items) {
+        const workshop = await orderRepository.findWorkshopForCheckout(item.id);
+
+        if (!workshop) throw new Error('WORKSHOP_NOT_FOUND:' + item.id);
+
+        if (workshop.current_bookings + item.quantity > workshop.max_capacity) {
+            throw new Error('WORKSHOP_FULL:' + item.id);
         }
-        validatedItems.push({
-            workshop_id: workshop.id,
-            quantity:    item.quantity,
-            unit_price:  workshop.price_current,   // authoritative server price
-        });
+
+        // Gatekeeper Pattern — re-pricing from DB blocks client tampering.
+        const unit_price  = workshop.price_current;
+        const total_price = unit_price * item.quantity;
+
+        builtItems.push({ workshop_id: item.id, quantity: item.quantity, unit_price, total_price });
     }
 
-    const total     = validatedItems.reduce((s, i) => s + i.quantity * i.unit_price, 0);
-    const order_id  = `ORD-${Date.now()}`;
-    const placed_at = new Date().toISOString();
+    const total = builtItems.reduce((sum, li) => sum + li.total_price, 0);
 
-    return bookingRepo.createBooking({
-        order_id,
-        user_id:   userId,
-        email,
-        card_last4,
-        total,
-        placed_at,
-        items: validatedItems,
+    const placed_at = new Date().toISOString();
+    const order = await orderRepository.insertOrder({
+        order_id, user_id, email, card_last4, total, placed_at,
     });
+
+    // TODO Day 7: wrap this loop in BEGIN IMMEDIATE TRANSACTION to prevent over-booking under concurrent load.
+    for (const lineItem of builtItems) {
+        await orderRepository.insertOrderItem({ order_id: order.id, ...lineItem });
+        await orderRepository.incrementBookings(lineItem.workshop_id, lineItem.quantity);
+    }
+
+    return { order_id, total, items: builtItems, placed_at };
 }
 
-module.exports = { processCheckout };
+module.exports = { placeOrder };

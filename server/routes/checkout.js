@@ -1,14 +1,9 @@
-// ===================================================================
-// server/routes/checkout.js — POST /api/checkout
-// Protected: authenticate middleware verifies the JWT before the
-// checkout controller runs.
-// ===================================================================
-const { Router }   = require('express');
-const authenticate = require('../middleware/authenticate');
-const { checkout } = require('../controllers/checkoutController');
+const { Router }      = require('express');
+const optionalAuth    = require('../middleware/optionalAuth');
+const { placeOrder }  = require('../controllers/checkoutController');
 
 const router = Router();
 
-router.post('/', authenticate, checkout);
+router.post('/', optionalAuth, placeOrder);
 
 module.exports = router;

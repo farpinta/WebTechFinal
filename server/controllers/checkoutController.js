@@ -1,85 +1,45 @@
-// ===================================================================
-// server/controllers/checkoutController.js
-// POST /api/checkout — protected by authenticate middleware (JWT).
-//
-// HTTP contract:
-//   201 Created    → booking succeeded, returns order_id
-//   400 Bad Request → invalid request body
-//   401 Unauthorized → missing / expired JWT (handled by middleware)
-//   404 Not Found   → unknown workshop_id in items
-//   409 Conflict   → at least one workshop is full; returns workshop_id
-//                    and title so the client can highlight the item
-// ===================================================================
 const checkoutService = require('../services/checkoutService');
 
-// card_last4 must be exactly 4 decimal digits
-const CARD_LAST4_RE = /^\d{4}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CARD_RE  = /^\d{16}$/;
 
-async function checkout(req, res, next) {
+async function placeOrder(req, res, next) {
     try {
-        const { email, card_last4, items } = req.body;
+        const { items, email, card } = req.body;
 
-        // ── Input validation ────────────────────────────────────────
-        if (!email || typeof email !== 'string') {
-            return res.status(400).json({
-                success: false, error: 'email is required', field: 'email',
-            });
+        if (!Array.isArray(items) || items.length < 1) {
+            return res.status(400).json({ success: false, error: 'items must be a non-empty array', field: 'items' });
         }
-        if (!card_last4 || !CARD_LAST4_RE.test(String(card_last4))) {
-            return res.status(400).json({
-                success: false, error: 'card_last4 must be exactly 4 digits', field: 'card_last4',
-            });
-        }
-        if (!Array.isArray(items) || items.length === 0) {
-            return res.status(400).json({
-                success: false, error: 'items must be a non-empty array', field: 'items',
-            });
-        }
-        for (const item of items) {
-            if (!Number.isInteger(item.workshop_id) || item.workshop_id < 1) {
+        for (const entry of items) {
+            if (!Number.isInteger(entry.id) || !Number.isInteger(entry.quantity) || entry.quantity < 1) {
                 return res.status(400).json({
-                    success: false, error: 'Each item must have a valid integer workshop_id',
-                });
-            }
-            if (!Number.isInteger(item.quantity) || item.quantity < 1) {
-                return res.status(400).json({
-                    success: false, error: 'Each item quantity must be an integer ≥ 1',
+                    success: false,
+                    error: 'Each item must have an integer id and a positive integer quantity',
+                    field: 'items',
                 });
             }
         }
-
-        // ── Delegate to service ────────────────────────────────────
-        // req.user is attached by the authenticate middleware.
-        const result = await checkoutService.processCheckout({
-            userId:    req.user?.id ?? null,
-            email,
-            card_last4: String(card_last4),
-            cartItems: items,
-        });
-
-        // ── Map result to HTTP status ──────────────────────────────
-        if (!result.ok) {
-            // 409 Conflict — workshop full
-            return res.status(409).json({
-                success:     false,
-                error:       'Workshop full',
-                workshop_id: result.conflict.workshop_id,
-                title:       result.conflict.title,
-            });
+        if (!email || !EMAIL_RE.test(email)) {
+            return res.status(400).json({ success: false, error: 'Invalid email address', field: 'email' });
+        }
+        if (!card || !CARD_RE.test(card)) {
+            return res.status(400).json({ success: false, error: 'Card must be exactly 16 digits', field: 'card' });
         }
 
-        // 201 Created — booking succeeded
-        return res.status(201).json({
-            success:  true,
-            order_id: result.order_id,
-        });
-
+        const user_id = req.user ? req.user.id : null;
+        const result = await checkoutService.placeOrder({ items, email, card, user_id });
+        return res.status(201).json({ success: true, data: result });
     } catch (err) {
-        if (err.status === 404) {
-            return res.status(404).json({ success: false, error: err.message });
+        if (err.message.startsWith('WORKSHOP_FULL:')) {
+            const workshopId = parseInt(err.message.split(':')[1], 10);
+            return res.status(409).json({ success: false, error: 'Workshop full', workshopId });
         }
-        next(err);   // global error handler sends 500
+        if (err.message.startsWith('WORKSHOP_NOT_FOUND:')) {
+            const workshopId = parseInt(err.message.split(':')[1], 10);
+            return res.status(404).json({ success: false, error: 'Workshop not found', workshopId });
+        }
+        next(err);
     }
 }
 
-module.exports = { checkout };
+module.exports = { placeOrder };
