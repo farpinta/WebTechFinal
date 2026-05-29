@@ -1,0 +1,737 @@
+/* =================================================================
+   public/css/main.css
+   Owner: Farsai (UX Engineer)
+   Commit: feat(styles): add complete workshop card & catalog CSS
+
+   โครงสร้าง:
+   1. Design tokens  — CSS variables ทั้งหมด (สี, spacing, radius)
+   2. Reset / base   — normalize พฤติกรรม browser
+   3. Navbar         — ส่วน nav ที่ทุกหน้าใช้ร่วมกัน
+   4. Catalog hero   — header section บน index.html
+   5. Category tabs  — filter buttons (#category-tabs)
+   6. Workshop card  — BEM block หลัก (.workshop-card__)
+   7. Capacity badge — .seats--open / .seats--full
+   8. Book Seat btn  — .btn-book-seat + disabled state
+   9. Skeleton       — loading placeholder animation
+  10. Checkout        — checkout page specific styles
+  11. Auth pages      — login / register pages
+  12. Utilities       — toast notification
+  13. Responsive      — breakpoints
+   ================================================================= */
+
+
+/* ─── 1. Design Tokens ──────────────────────────────────────────── */
+/*
+   WHY CSS VARIABLES?
+   แทนที่จะ hardcode สีทุกที่ เช่น #2563eb ซ้ำกัน 30 จุด
+   เราเก็บไว้ที่เดียวใน :root และเปลี่ยนแค่ครั้งเดียว
+   ทำให้ rebranding หรือ dark mode ง่ายมาก
+*/
+:root {
+  /* Brand colors */
+  --clr-primary:        #2563eb;   /* blue — Tech category */
+  --clr-primary-dark:   #1d4ed8;
+  --clr-primary-light:  #dbeafe;
+
+  /* Category palette — ตรงกับ seed data ใน seed.js */
+  --clr-cat-tech:     #2563eb;
+  --clr-cat-cooking:  #f97316;
+  --clr-cat-music:    #16a34a;
+  --clr-cat-art:      #a855f7;
+
+  /* Semantic colors */
+  --clr-success:      #16a34a;
+  --clr-success-bg:   #dcfce7;
+  --clr-danger:       #dc2626;
+  --clr-danger-bg:    #fee2e2;
+  --clr-warning:      #d97706;
+  --clr-warning-bg:   #fef3c7;
+
+  /* Neutral scale */
+  --clr-gray-50:      #f9fafb;
+  --clr-gray-100:     #f3f4f6;
+  --clr-gray-200:     #e5e7eb;
+  --clr-gray-400:     #9ca3af;
+  --clr-gray-600:     #4b5563;
+  --clr-gray-800:     #1f2937;
+  --clr-gray-900:     #111827;
+
+  /* Seats badge */
+  --clr-seats-open-bg:   #dcfce7;
+  --clr-seats-open-text: #15803d;
+  --clr-seats-full-bg:   #fee2e2;
+  --clr-seats-full-text: #b91c1c;
+
+  /* Typography */
+  --font-body: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Courier New', monospace;
+
+  /* Spacing scale */
+  --space-xs:   4px;
+  --space-sm:   8px;
+  --space-md:   16px;
+  --space-lg:   24px;
+  --space-xl:   40px;
+
+  /* Border radius */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  --shadow-md:  0 4px 6px -1px rgba(0,0,0,.08), 0 2px 4px -1px rgba(0,0,0,.04);
+  --shadow-lg:  0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -2px rgba(0,0,0,.04);
+  --shadow-hover: 0 8px 25px rgba(37,99,235,.15);
+
+  /* Transitions */
+  --transition-fast:   150ms ease;
+  --transition-base:   250ms ease;
+  --transition-slow:   400ms ease;
+
+  /* Card dimensions */
+  --card-img-height:   200px;
+}
+
+
+/* ─── 2. Reset / Base ───────────────────────────────────────────── */
+/*
+   WHY BOX-SIZING BORDER-BOX?
+   Browser default คือ content-box ทำให้ width + padding + border
+   รวมกันเกิน container ที่กำหนด เปลี่ยนเป็น border-box ให้
+   padding อยู่ใน width ที่กำหนดเลย จัดการ layout ง่ายกว่า
+*/
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--clr-gray-50);
+  color: var(--clr-gray-800);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+
+/* ─── 3. Navbar ─────────────────────────────────────────────────── */
+/*
+   ใช้ Bootstrap's .navbar เป็น base แล้ว override เฉพาะจุด
+   ที่ต้องการ เช่น cart badge animation
+*/
+#cart-count {
+  /* badge count บน cart icon */
+  min-width: 18px;
+  height: 18px;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+  transition: transform var(--transition-fast);
+}
+
+#cart-count.bump {
+  /*
+     JS จะเพิ่ม class .bump เมื่อ addToCart() ถูกเรียก
+     แล้วลบออกหลัง 300ms เพื่อ trigger animation ซ้ำได้
+     ดู catalog.js บรรทัดที่ handle click event
+  */
+  transform: scale(1.4);
+}
+
+
+/* ─── 4. Catalog Hero ───────────────────────────────────────────── */
+/*
+   Hero section บน index.html ส่วนนี้ Farsai ออกแบบ visual
+   และ Arm ไม่ยุ่ง เพราะไม่มี data binding
+*/
+.catalog-hero {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%);
+  padding: 60px 0 48px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* decorative circle — ทำ depth โดยไม่ต้องใช้รูปภาพ */
+.catalog-hero::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.05);
+  pointer-events: none;
+}
+
+.catalog-hero::after {
+  content: '';
+  position: absolute;
+  bottom: -80px;
+  left: 10%;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.04);
+  pointer-events: none;
+}
+
+.catalog-hero__title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  /*
+     clamp(min, preferred, max):
+     - บนมือถือแคบ ได้ 1.75rem
+     - บน desktop กว้าง ได้ 2.5rem
+     - ตรงกลางสเกลตาม viewport โดยไม่ต้องเขียน media query
+  */
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  margin-bottom: var(--space-sm);
+}
+
+.catalog-hero__subtitle {
+  font-size: 1.05rem;
+  color: rgba(255,255,255,.75);
+  margin-bottom: var(--space-lg);
+}
+
+/* search input override — Bootstrap ให้ base แต่เราทำ custom */
+#search-input {
+  max-width: 480px;
+  border: none;
+  border-radius: var(--radius-pill);
+  padding: 12px 20px;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2);
+  transition: box-shadow var(--transition-base);
+}
+
+#search-input:focus {
+  outline: none;
+  box-shadow: 0 4px 20px rgba(0,0,0,.2), 0 0 0 3px rgba(255,255,255,.3);
+}
+
+
+/* ─── 5. Category Tabs ──────────────────────────────────────────── */
+/*
+   WHY CUSTOM TABS แทน Bootstrap nav-pills?
+   เพราะเราต้องการ data-category attribute บน element
+   เพื่อให้ JS อ่านค่าได้ผ่าน event delegation
+   (Arm's catalog.js ฟัง click บน #category-tabs แล้วอ่าน
+   e.target.closest('[data-category]').dataset.category)
+*/
+#category-tabs {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: var(--space-md) 0 var(--space-sm);
+}
+
+.category-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--clr-gray-200);
+  background: #ffffff;
+  color: var(--clr-gray-600);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.category-tab:hover {
+  border-color: var(--clr-primary);
+  color: var(--clr-primary);
+  transform: translateY(-1px);
+}
+
+/*
+   Active state — JS เพิ่ม class .category-tab--active
+   เมื่อ user เลือก category นั้น
+   เราใช้ custom property --tab-color เพื่อให้แต่ละ category
+   มีสีของตัวเอง (กำหนดใน JS ตอน render)
+*/
+.category-tab--active {
+  background: var(--tab-color, var(--clr-primary));
+  border-color: var(--tab-color, var(--clr-primary));
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+
+.category-tab--active:hover {
+  color: #ffffff;
+}
+
+/* dot indicator สีตาม category */
+.category-tab__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+
+/* ─── 6. Workshop Card (BEM) ────────────────────────────────────── */
+/*
+   WHY BEM (Block__Element--Modifier)?
+   ป้องกัน CSS conflict — .title ทั่วไปอาจชนกับ Bootstrap หรือ
+   library อื่น แต่ .workshop-card__title จะไม่มีชื่อซ้ำกัน
+   Arm ใช้ชื่อเหล่านี้ใน renderWorkshops() ใน catalog.js
+*/
+.workshop-card {
+  background: #ffffff;
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;           /* รูปไม่เกินขอบ card */
+  position: relative;         /* ให้ .workshop-badge วาง absolute ได้ */
+  display: flex;
+  flex-direction: column;
+  height: 100%;               /* ให้ card สูงเท่ากันใน row เดียวกัน */
+  transition:
+    transform var(--transition-base),
+    box-shadow var(--transition-base),
+    border-color var(--transition-base);
+  will-change: transform;     /* บอก browser ล่วงหน้าว่าจะ animate transform */
+}
+
+.workshop-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--clr-gray-300, #d1d5db);
+}
+
+/* --- Badge "New" / "Popular" --- */
+.workshop-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1;                 /* ลอยเหนือรูปภาพ */
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(4px); /* ดูผ่านรูปเล็กน้อย — subtle effect */
+}
+
+/* badge สีต่างกันตาม value */
+.workshop-badge[data-badge="Popular"] {
+  background: rgba(234, 88, 12, .9);
+  color: #ffffff;
+}
+
+.workshop-badge[data-badge="New"] {
+  background: rgba(22, 163, 74, .9);
+  color: #ffffff;
+}
+
+/* ถ้า Arm ไม่ได้ใส่ data-badge ก็ใช้ default */
+.workshop-badge:not([data-badge]) {
+  background: rgba(17,24,39,.75);
+  color: #ffffff;
+}
+
+/* --- Image wrapper --- */
+.workshop-card__img {
+  width: 100%;
+  height: var(--card-img-height);
+  object-fit: cover;          /* crop ให้เต็ม area โดยไม่ stretch */
+  object-position: center;
+  background-color: var(--clr-gray-100); /* placeholder สีก่อนรูปโหลด */
+  transition: transform var(--transition-slow);
+}
+
+.workshop-card:hover .workshop-card__img {
+  transform: scale(1.04);     /* zoom รูปเล็กน้อยเมื่อ hover card */
+}
+
+/* --- Body container --- */
+.workshop-card__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;                    /* กิน space ที่เหลือใน card */
+}
+
+/* --- Category label --- */
+.workshop-card__category {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--clr-primary);
+  margin-bottom: 6px;
+}
+
+/* สีตาม category — Arm ส่ง category string มา เราทำ rule ตรง */
+.workshop-card__category[data-cat="Tech"]    { color: var(--clr-cat-tech); }
+.workshop-card__category[data-cat="Cooking"] { color: var(--clr-cat-cooking); }
+.workshop-card__category[data-cat="Music"]   { color: var(--clr-cat-music); }
+.workshop-card__category[data-cat="Art"]     { color: var(--clr-cat-art); }
+
+/* --- Title --- */
+.workshop-card__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--clr-gray-900);
+  line-height: 1.35;
+  margin-bottom: 4px;
+
+  /* clamp ที่ 2 บรรทัด เพื่อให้ทุก card สูงเท่ากัน */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- Instructor --- */
+.workshop-card__instructor {
+  font-size: 0.8rem;
+  color: var(--clr-gray-400);
+  margin-bottom: 8px;
+}
+
+/* --- Description --- */
+.workshop-card__desc {
+  font-size: 0.85rem;
+  color: var(--clr-gray-600);
+  line-height: 1.55;
+  margin-bottom: 12px;
+  flex: 1;                    /* ดัน meta + button ไปชิดล่าง card */
+
+  /* clamp 3 บรรทัด */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- Meta row (price + seats + rating) --- */
+.workshop-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+/* --- Price --- */
+.workshop-card__price {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--clr-gray-900);
+}
+
+/* --- Rating --- */
+.workshop-card__rating {
+  font-size: 0.78rem;
+  color: var(--clr-warning);
+  font-weight: 600;
+  margin-left: auto;          /* ดัน rating ไปชิดขวา */
+}
+
+.workshop-card__review-count {
+  font-size: 0.75rem;
+  color: var(--clr-gray-400);
+}
+
+
+/* ─── 7. Capacity Badge ─────────────────────────────────────────── */
+/*
+   WHY แยก modifier เป็น .seats--open / .seats--full?
+   Arm เขียนใน catalog.js ว่า:
+     const isFull = seatsLeft <= 0;
+     class="workshop-card__seats ${isFull ? 'seats--full' : 'seats--open'}"
+   เราจึง style ทั้งสองให้ต่างกันชัดเจน เพื่อ user รู้ทันทีว่า
+   ยังมีที่นั่งหรือไม่ โดยไม่ต้องอ่าน text
+*/
+.workshop-card__seats {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  line-height: 1;
+}
+
+/* ยังมีที่ว่าง → สีเขียว สื่อถึง "go / available" */
+.seats--open {
+  background-color: var(--clr-seats-open-bg);
+  color: var(--clr-seats-open-text);
+}
+
+/* เต็มแล้ว → สีแดง สื่อถึง "stop / unavailable" */
+.seats--full {
+  background-color: var(--clr-seats-full-bg);
+  color: var(--clr-seats-full-text);
+}
+
+/* dot indicator เล็กๆ ข้างหน้า text */
+.seats--open::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--clr-seats-open-text);
+  opacity: .7;
+}
+
+.seats--full::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--clr-seats-full-text);
+  opacity: .7;
+}
+
+/* urgent — น้อยกว่า 5 ที่ (JS จะเพิ่ม class .seats--low) */
+.seats--low {
+  background-color: var(--clr-warning-bg);
+  color: var(--clr-warning);
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+.seats--low::before {
+  background: var(--clr-warning);
+}
+
+@keyframes pulse-warning {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .65; }
+}
+
+
+/* ─── 8. Book Seat Button ───────────────────────────────────────── */
+/*
+   WHY ไม่ใช้ Bootstrap .btn?
+   เพราะ Arm ใช้ class .btn-book-seat โดยเฉพาะเพื่อ event delegation
+   การใช้ Bootstrap .btn จะทำให้ selector ซับซ้อนและ override ยาก
+   เราจึง style ตั้งแต่ต้นเอง
+*/
+.btn-book-seat {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--clr-primary);
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+  letter-spacing: 0.01em;
+  /* ป้องกัน text selection เมื่อ double click */
+  user-select: none;
+}
+
+.btn-book-seat:hover:not(:disabled) {
+  background: var(--clr-primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37,99,235,.35);
+}
+
+.btn-book-seat:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/*
+   DISABLED STATE — สำคัญมาก
+   เมื่อ isFull = true, Arm จะใส่ attribute disabled บน button
+   CSS :disabled pseudo-class จะ match อัตโนมัติ ไม่ต้องใช้ JS
+   เพิ่ม class ให้ button
+*/
+.btn-book-seat:disabled {
+  background: var(--clr-gray-200);
+  color: var(--clr-gray-400);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* animation เมื่อ add ลง cart สำเร็จ (JS เพิ่ม .btn-book-seat--added) */
+.btn-book-seat--added {
+  background: var(--clr-success) !important;
+}
+
+
+/* ─── 9. Skeleton Loader ────────────────────────────────────────── */
+/*
+   WHY SKELETON แทน spinner?
+   Skeleton แสดง shape ของ content ที่จะมาทำให้ user รู้สึกว่า
+   หน้าเร็วกว่าที่เป็นจริง (perceived performance)
+   spinner แค่บอกว่า "กำลังโหลด" แต่ skeleton บอกว่า
+   "กำลังโหลด card แบบนี้ 6 ใบ"
+*/
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--clr-gray-200) 25%,
+    var(--clr-gray-100) 50%,
+    var(--clr-gray-200) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-card {
+  background: #ffffff;
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.skeleton-img   { height: var(--card-img-height); }
+.skeleton-body  { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.skeleton-title { height: 18px; width: 75%; }
+.skeleton-text  { height: 13px; }
+.skeleton-text--short { width: 50%; }
+.skeleton-btn   { height: 40px; border-radius: var(--radius-md); margin-top: 4px; }
+
+
+/* ─── 10. Checkout Page ─────────────────────────────────────────── */
+/*
+   409 Conflict row highlight — Arm ใช้ใน checkout.js:
+     row.classList.add('table-danger')
+   Bootstrap มี .table-danger อยู่แล้ว แต่เราเพิ่ม animation
+*/
+#summary-items tr.table-danger {
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+
+
+/* ─── 11. Auth Pages (Login / Register) ────────────────────────── */
+/* ให้ form card ดูสะอาดกว่า Bootstrap default */
+#login-form,
+#register-form {
+  background: #ffffff;
+  border: 1px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-sm);
+}
+
+
+/* ─── 12. Toast Notification ────────────────────────────────────── */
+/*
+   Toast จะถูกสร้างและ inject โดย catalog.js เมื่อ addToCart()
+   สำเร็จ — Farsai แค่ style ให้พร้อม
+
+   WHY FIXED POSITION?
+   Toast ต้องลอยอยู่บน content เสมอ ไม่สนใจว่า user scroll ไปไหน
+*/
+.toast-cart {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--clr-gray-900);
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  z-index: 9999;
+  pointer-events: none;
+
+  /* เริ่มจาก invisible และอยู่ล่าง */
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity var(--transition-base),
+    transform var(--transition-base);
+}
+
+.toast-cart--show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+
+/* ─── 13. Responsive Breakpoints ────────────────────────────────── */
+/*
+   Bootstrap จัดการ grid ให้อยู่แล้ว ผ่าน row-cols-1 row-cols-md-3
+   เราแค่ override component-level behavior บน mobile
+*/
+
+/* Mobile — width < 576px */
+@media (max-width: 575px) {
+  .catalog-hero {
+    padding: 40px 0 32px;
+  }
+
+  #search-input {
+    /* บน mobile ให้ search input เต็ม width */
+    max-width: 100%;
+    width: 100% !important;
+  }
+
+  #category-tabs {
+    /* scroll แนวนอนแทนการ wrap เพื่อประหยัดพื้นที่แนวตั้ง */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+
+  #category-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workshop-card__meta {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+/* Tablet — 576px–991px */
+@media (min-width: 576px) and (max-width: 991px) {
+  :root {
+    --card-img-height: 180px;
+  }
+}
