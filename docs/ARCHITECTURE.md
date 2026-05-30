@@ -32,23 +32,37 @@ The dotted red **cut line** shows where the monolith could be split into three i
 
 ## Concurrency — Bonus A — Stock-Check
 
-When two users click "Book" on the last seat at the same millisecond, naive code lets **both** succeed because there is a TOCTOU (Time Of Check, Time Of Use) window between `SELECT capacity` and `UPDATE current_bookings`.
+### The bug before Day 7
 
-We close that window with:
+In `server/services/checkoutService.js`, the capacity check ran as a plain `SELECT` inside `findWorkshopForCheckout` and the result was evaluated on line 14 (`if (workshop.current_bookings + item.quantity > workshop.max_capacity)`). A separate `incrementBookings` call later issued the `UPDATE`. Between those two statements, a second concurrent request could call `findWorkshopForCheckout` and receive the same stale `current_bookings` value — meaning both requests passed the check independently. This is a classic TOCTOU (Time Of Check, Time Of Use) race condition: the world was checked at one moment but acted on at another, and the state could change in between.
+
+### The fix (implemented Day 7)
+
+We wrap the per-item loop (steps 3–6 of `placeOrder`) in an explicit transaction:
 
 ```js
-db.run('BEGIN IMMEDIATE TRANSACTION');
+await db.runAsync('BEGIN IMMEDIATE TRANSACTION');
 try {
-  // SELECT + UPDATE happen under a write lock acquired immediately.
-  // Any second request blocks until this transaction COMMITs.
-  // ...
-  db.run('COMMIT');
-} catch (e) {
-  db.run('ROLLBACK');   // capacity violated → 409, no partial booking
+    // findWorkshopForCheckout, capacity check, insertOrder,
+    // insertOrderItem, and incrementBookings all run here.
+    await db.runAsync('COMMIT');
+} catch (err) {
+    await db.runAsync('ROLLBACK');
+    throw err;   // re-throw so the controller can map to 409 or 500
 }
 ```
 
-`BEGIN IMMEDIATE` (not `BEGIN DEFERRED`) acquires a `RESERVED` lock immediately, so SQLite serializes the contending writes for us.
+`BEGIN IMMEDIATE` (not `BEGIN DEFERRED`) acquires a `RESERVED` lock at the moment the transaction opens, so any second request that also tries `BEGIN IMMEDIATE` blocks until the first transaction either commits or rolls back. SQLite serializes the contending writes on our behalf — no application-level mutex needed.
+
+Verified: docs/screenshots/race-bug-day6.png shows the bug; docs/screenshots/race-fix-day7.png shows two concurrent requests resolving to one 201 and one 409, with current_bookings landing at max_capacity and never above it.
+
+### Why this is the right pattern here
+
+- **SQLite's concurrency unit is the whole file.** There are no row-level locks, so a short exclusive transaction is the idiomatic — and only — correct solution for this database engine.
+- **The transaction window is sub-millisecond per checkout.** The blocked second request waits only for the SELECT + INSERT + UPDATE to finish, which is invisible latency at the scale of a class project.
+- **Portable to PostgreSQL.** A future migration swaps `BEGIN IMMEDIATE` for `SELECT … FOR UPDATE` inside the repository layer without changing the service or controller code at all.
+
+> Demo recording: [docs/diagrams/concurrency-demo.mp4](diagrams/concurrency-demo.mp4)
 
 ## Security Decisions
 

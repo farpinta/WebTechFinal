@@ -69,7 +69,7 @@ This project is the audited final form of every pattern taught in Sessions 1-10:
 ## Documentation
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Why each pattern was chosen
-- [docs/API.md](docs/API.md) — Full endpoint reference *(coming Day 12)*
+- [docs/API.md](docs/API.md) — Full endpoint reference
 - [docs/diagrams/](docs/diagrams/) — ERD, Component Diagram, Sequence Diagrams
 
 ## License
